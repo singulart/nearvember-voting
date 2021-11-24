@@ -2,9 +2,46 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+use std::cmp::{PartialOrd, PartialEq, Ordering, Ord};
+
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+#[derive(Serialize, Deserialize, Clone, BorshDeserialize, BorshSerialize)]
+pub struct Candidate {
+    name: String,
+    votes: i32,
+}
+
+impl Hash for Candidate {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.votes.hash(state);
+    }
+}
+
+impl PartialEq for Candidate {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
+    }
+}
+
+impl PartialOrd for Candidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for Candidate {}
+
+impl Ord for Candidate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, BorshDeserialize, BorshSerialize)]
 pub struct VotingOption {
@@ -46,93 +83,67 @@ pub struct Voting {
     polls: HashMap<String, VotingOptions>,
     // Map of poll id to voting results.
     results: HashMap<String, VotingResults>,
+
+    candidates: HashSet<Candidate>,
+    voted: HashSet<String>,
+
 }
 
 #[near_bindgen]
 impl Voting {
-    pub fn vote(&mut self, poll_id: String, votes: HashMap<String, i32>) -> bool {
+    pub fn vote(&mut self, candidate: String) -> String {
+
         let voter_contract = env::signer_account_id();
-        let owner_contract = env::current_account_id();
-        env::log(
-            format!(
-                "{} is voting on {} owner is {}",
-                voter_contract, poll_id, owner_contract
-            )
-            .as_bytes(),
-        );
-        // Now we need to find a contract to vote for.
-        match self.results.get_mut(&poll_id) {
-            Some(results) => {
-                match results.voted.get(&voter_contract) {
-                    Some(_) => {
-                        env::log(
-                            format!("{} already voted in {}", voter_contract, poll_id).as_bytes(),
-                        );
-                        return false;
-                    }
-                    None => {
-                        results.voted.insert(voter_contract, 1);
-                    }
-                }
-                for (vote, checked) in votes.iter() {
-                    if *checked == 0 {
-                        continue;
-                    }
-                    match results.variants.get_mut(vote) {
-                        Some(result) => {
-                            *result = *result + 1;
-                        }
-                        None => {
-                            results.variants.insert(vote.to_string(), 1);
-                        }
-                    }
-                }
-                return true;
+        let cand = &Candidate {name: candidate, votes: 0i32};
+
+        if self.voted.contains(&voter_contract) {
+            env::log("Already voted".as_bytes());
+            return "Already voted".to_string()
+        } 
+        else if !self.candidates.contains(cand) {
+            env::log("Candidate not found".as_bytes());
+            return "Candidate not found".to_string()
+        } else {
+            let existing = self.candidates.get(cand).unwrap();
+            env::log(
+                format!(
+                    "candidate = {}, votes = {}",
+                    existing.name,
+                    existing.votes
+                )
+                .as_bytes(),
+            );
+    
+            let updated = Candidate {name: existing.name.clone(), votes: existing.votes + 1};
+            match self.candidates.replace(updated) {
+                Some(vvv) => {
+                    env::log(vvv.votes.to_string().as_bytes());
+                    self.voted.insert(voter_contract);
+                },
+                None => {
+                    env::log("No replacement!!!".as_bytes())
+                }                
             }
-            None => {
-                env::log(format!("no poll known for {}", poll_id).as_bytes());
-                return false;
-            }
-        };
+            return "Voted".to_string()
+        }
     }
 
-    pub fn create_poll(&mut self, question: String, variants: HashMap<String, String>) -> String {
+    pub fn add_candidate(&mut self, candidate: String) -> String {
         env::log(
             format!(
-                "create_poll for {} currently have {} polls",
-                question,
-                self.polls.len()
+                "add_candidate {}",
+                candidate,
             )
             .as_bytes(),
         );
-        let creator_account_id = env::signer_account_id();
-        let poll_id = bs58::encode(env::sha256(&env::random_seed())).into_string();
-        let result = poll_id.clone();
-        let mut variants_vec = <Vec<VotingOption>>::new();
-        for (k, v) in variants.iter() {
-            variants_vec.push(VotingOption {
-                option_id: k.to_string(),
-                message: v.to_string(),
-            })
+
+        let name_c: String = candidate.clone();
+        if self.candidates.contains(&Candidate {name: candidate, votes: 0i32}) {
+            println!("Candidate already exists!")
+        } else {
+            self.candidates.insert(Candidate {name: name_c, votes: 0i32});
         }
-        self.polls.insert(
-            poll_id.clone(),
-            VotingOptions {
-                creator: creator_account_id,
-                poll_id: poll_id.clone(),
-                question: question,
-                variants: variants_vec,
-            },
-        );
-        self.results.insert(
-            poll_id.clone(),
-            VotingResults {
-                poll_id: poll_id,
-                variants: HashMap::new(),
-                voted: HashMap::new(),
-            },
-        );
-        return result;
+        return "1".to_string()
     }
 
     pub fn show_poll(&self, poll_id: String) -> Option<VotingOptions> {
@@ -160,63 +171,5 @@ impl Voting {
 
     pub fn ping(&self) -> String {
         "PONG".to_string()
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, VMContext};
-
-    fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
-        VMContext {
-            current_account_id: "alice_near".to_string(),
-            signer_account_id: "bob_near".to_string(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: "carol_near".to_string(),
-            input,
-            block_index: 0,
-            epoch_height: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 0,
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view,
-            output_data_receivers: vec![],
-        }
-    }
-
-    #[test]
-    fn nonexisting_poll() {
-        let context = get_context(vec![], false);
-        testing_env!(context);
-        let contract = Voting::default();
-        let options = contract.show_poll("default".to_string());
-        assert_eq!(true, options.is_none());
-    }
-
-    #[test]
-    fn create_poll() {
-        let context = get_context(vec![], false);
-        testing_env!(context);
-        let mut contract = Voting::default();
-        let poll = contract.create_poll(
-            "To be or not to be?".to_string(),
-            [
-                ("v1".to_string(), "To be".to_string()),
-                ("v2".to_string(), "Not to be".to_string()),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-        );
-        let options = contract.show_poll(poll);
-        assert_eq!(false, options.is_none());
-        assert_eq!("To be or not to be?".to_string(), options.unwrap().question);
     }
 }
