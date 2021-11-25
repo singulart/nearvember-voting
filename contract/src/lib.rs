@@ -17,6 +17,7 @@ pub struct Voting {
 
 #[near_bindgen]
 impl Voting {
+
     pub fn vote(&mut self, candidate: String) -> String {
 
         let voter_contract = env::signer_account_id();
@@ -42,6 +43,34 @@ impl Voting {
         let existing = self.vote_state.get_mut(&candidate).unwrap(); 
         existing.insert(voter_contract);
         return "Voted".to_string();
+    }
+
+    pub fn my_vote(&mut self) -> String {
+
+        let voter_contract = env::signer_account_id();
+
+        for (candidate, voters) in &self.vote_state {
+            if voters.contains(&voter_contract) {
+                return candidate.to_string()
+            }
+        }
+        return "".to_string();
+    }
+
+    pub fn unvote(&mut self) -> String {
+
+        let voter_contract = env::signer_account_id();
+        let my_vote = self.my_vote();
+
+        match self.vote_state.get_mut(&my_vote) {
+            Some(votes) => {
+                votes.remove(&voter_contract);
+            },
+            None => {
+                println!("Not found!")
+            },
+        }
+        return "OK".to_string();
     }
 
     pub fn add_candidate(&mut self, candidate: String) -> String {
