@@ -2,21 +2,52 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use serde::{Serialize, ser::{SerializeMap, Serializer}};
 
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
+#[derive(Default, BorshDeserialize, BorshSerialize)]
+pub struct VotingStats {
+    stats: HashMap<String, i32>
+}
+
+impl Serialize for VotingStats {
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.stats.len()))?;
+        for (k, v) in self.stats.clone() {
+            map.serialize_entry(&k, &v)?;
+        }
+        map.end()
+    }
+}
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Voting {
 
+    // candidates are keys, voters are values
     vote_state: HashMap<String, HashSet<String>>,
 }
 
 #[near_bindgen]
 impl Voting {
+
+    pub fn get_stats(&mut self) -> VotingStats {
+
+        let mut statz: HashMap<String, i32> = HashMap::new();
+
+        for (candidate, voters) in &self.vote_state {
+            statz.insert(candidate.clone(), voters.len() as i32);
+        }
+        return VotingStats{stats: statz};
+    }
 
     pub fn vote(&mut self, candidate: String) -> String {
 
@@ -89,31 +120,4 @@ impl Voting {
         }
         return "1".to_string()
     }
-
-//     pub fn show_poll(&self, poll_id: String) -> Option<VotingOptions> {
-//         match self.polls.get(&poll_id) {
-//             Some(options) => Some(options.clone()),
-//             None => {
-//                 env::log(format!("Unknown voting {}", poll_id).as_bytes());
-//                 None
-//             }
-//         }
-//     }
-
-//     pub fn show_results(&self, poll_id: String) -> Option<VotingStats> {
-//         match self.polls.get(&poll_id) {
-//             Some(poll) => match self.results.get(&poll_id) {
-//                 Some(results) => Some(VotingStats {
-//                     results: results.clone(),
-//                     poll: poll.clone(),
-//                 }),
-//                 None => None,
-//             },
-//             None => None,
-//         }
-//     }
-
-//     pub fn ping(&self) -> String {
-//         "PONG".to_string()
-//     }
 }
