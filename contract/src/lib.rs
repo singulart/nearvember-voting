@@ -2,7 +2,6 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use serde_json::Result;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -25,7 +24,8 @@ pub struct Voting {
 #[near_bindgen]
 impl Voting {
 
-    pub fn get_stats(&mut self) -> String {
+    // see https://stackoverflow.com/a/66718112
+    pub fn get_stats(self) -> String {
 
         let mut statz: HashMap<String, i32> = HashMap::new();
 
@@ -66,12 +66,10 @@ impl Voting {
         return "Voted".to_string();
     }
 
-    pub fn my_vote(&mut self) -> String {
-
-        let voter_contract = env::signer_account_id();
+    pub fn my_vote(&self, account_id: String) -> String {
 
         for (candidate, voters) in &self.vote_state {
-            if voters.contains(&voter_contract) {
+            if voters.contains(&account_id) {
                 return candidate.to_string()
             }
         }
@@ -81,7 +79,13 @@ impl Voting {
     pub fn unvote(&mut self) -> String {
 
         let voter_contract = env::signer_account_id();
-        let my_vote = self.my_vote();
+        //TODO back to let mut my_vote = self.my_vote()
+        let mut my_vote = "".to_string();
+        for (candidate, voters) in &self.vote_state {
+            if voters.contains(&voter_contract) {
+                my_vote = candidate.to_string()
+            }
+        }
 
         match self.vote_state.get_mut(&my_vote) {
             Some(votes) => {
