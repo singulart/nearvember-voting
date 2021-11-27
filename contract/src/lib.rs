@@ -2,18 +2,17 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use near_sdk::serde::{Serialize, Deserialize};
-
+use serde_json::Result;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct VotingStats {
-    stats: HashMap<String, i32>
-}
+// #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+// #[serde(crate = "near_sdk::serde")]
+// pub struct VotingStats {
+//     stats: HashMap<String, i32>
+// }
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -26,14 +25,15 @@ pub struct Voting {
 #[near_bindgen]
 impl Voting {
 
-    pub fn get_stats(&mut self) -> VotingStats {
+    pub fn get_stats(&mut self) -> String {
 
         let mut statz: HashMap<String, i32> = HashMap::new();
 
         for (candidate, voters) in &self.vote_state {
             statz.insert(candidate.clone(), voters.len() as i32);
         }
-        return VotingStats{stats: statz};
+        
+        serde_json::to_string(&statz).ok().unwrap()
     }
 
     pub fn vote(&mut self, candidate: String) -> String {
