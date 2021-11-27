@@ -2,30 +2,17 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use serde::{Serialize, ser::{SerializeMap, Serializer}};
+use near_sdk::serde::{Serialize, Deserialize};
 
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct VotingStats {
     stats: HashMap<String, i32>
-}
-
-impl Serialize for VotingStats {
-
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(self.stats.len()))?;
-        for (k, v) in self.stats.clone() {
-            map.serialize_entry(&k, &v)?;
-        }
-        map.end()
-    }
 }
 
 #[near_bindgen]
@@ -71,8 +58,11 @@ impl Voting {
             return "Candidate not found".to_string()
         }
 
-        let existing = self.vote_state.get_mut(&candidate).unwrap(); 
-        existing.insert(voter_contract);
+        self.vote_state.entry(candidate)
+            .and_modify(|votes| { 
+                votes.insert(voter_contract);
+            }); 
+
         return "Voted".to_string();
     }
 
@@ -104,20 +94,9 @@ impl Voting {
         return "OK".to_string();
     }
 
-    pub fn add_candidate(&mut self, candidate: String) -> String {
-        env::log(
-            format!(
-                "add_candidate {}",
-                candidate,
-            )
-            .as_bytes(),
-        );
+    pub fn add_candidate(&mut self, candidate: String) {
 
-        if self.vote_state.contains_key(&candidate) {
-            println!("Candidate already exists!")
-        } else {
-            self.vote_state.insert(candidate, HashSet::new());
-        }
-        return "1".to_string()
+        self.vote_state.entry(candidate).or_insert(HashSet::new());
+
     }
 }
