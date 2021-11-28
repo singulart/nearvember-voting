@@ -1,12 +1,10 @@
 import 'regenerator-runtime/runtime'
 import React from 'react'
-import { login, logout, register } from './utils'
+import { login, logout, generateBio } from './utils'
 import './global.css'
-import Big from 'big.js';
 import meme1 from './assets/voote.jpeg';
-
-import getConfig from './config'
-const { networkId } = getConfig(process.env.NODE_ENV || 'development')
+import Axios from 'axios';
+import {ThisPersonDoesNotExist} from './avatar';
 
 export default function App() {
   // use React Hooks to store greeting in component state
@@ -16,30 +14,42 @@ export default function App() {
   const [buttonDisabled, setButtonDisabled] = React.useState(true)
 
   // after submitting the form, we want to show Notification
-  const [balance, setBalance] = React.useState(0.0)
+  const [avatars, setAvatars] = React.useState(new Map())
   const [myVote, setMyVote] = React.useState(true)
+
+
+  const dnte = new ThisPersonDoesNotExist();
 
   // The useEffect hook can be used to fire side-effects during render
   // Learn more: https://reactjs.org/docs/hooks-intro.html
-  React.useEffect(
-    () => {
-      // in this case, we only care to query the contract when signed in
-      if (window.walletConnection.isSignedIn()) {
-        window.contract.get_stats()
-        .then(stats => {
-          console.log(stats)
-          setStats(stats)
-        })
-        .then(() => window.contract.my_vote({account_id: window.accountId})
-          .then(myVote => {
-            console.log(myVote)
-            setMyVote(myVote)
+  React.useEffect(() => {
+      // async function letsDoAsyncUseEffect() { 
+        // in this case, we only care to query the contract when signed in
+        if (window.walletConnection.isSignedIn()) {
+          window.contract.get_stats()
+          .then(async (stats) => {
+            console.log(stats)
+            setStats(stats)
+            let statsMap = JSON.parse(stats);  
+            let avatars = new Map()
+            for (const key in statsMap){
+              await dnte.getImage({callback: (resizedBase64) => {
+                avatars.set(key, resizedBase64);
+                //console.log(img);
+              }})
+            }
+            setAvatars(avatars);
           })
-        )
-      }
-    },
-    []
-  )
+          .then(() => window.contract.my_vote({account_id: window.accountId})
+            .then(myVote => {
+              console.log(myVote)
+              setMyVote(myVote)
+            })
+          )
+        }
+      // }
+      // letsDoAsyncUseEffect()
+  },[])
 
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
@@ -78,6 +88,8 @@ export default function App() {
             <li key={candidate}>
               {myVote === candidate ? <b>{candidate}</b> : <p>{candidate}</p>}
               <p>{votes}</p>
+              <p>{generateBio()}</p>
+              <img src={avatars.get(candidate)} style={{maxWidth: "30%"}}/>
               {myVote === candidate ? 
                 <button
                   style={{ borderRadius: '5px' }}
