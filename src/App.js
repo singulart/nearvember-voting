@@ -3,8 +3,18 @@ import React from 'react'
 import { login, logout, generateBio } from './utils'
 import './global.css'
 import meme1 from './assets/voote.jpeg';
-import Axios from 'axios';
 import {ThisPersonDoesNotExist} from './avatar';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import TextField from '@mui/material/TextField';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Avatar from '@mui/material/Avatar';
+import Typography from '@mui/material/Typography';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import DeleteIcon from '@mui/icons-material/Delete';
+import IconButton from '@mui/material/IconButton';
+
 
 export default function App() {
   // use React Hooks to store greeting in component state
@@ -23,32 +33,30 @@ export default function App() {
   // The useEffect hook can be used to fire side-effects during render
   // Learn more: https://reactjs.org/docs/hooks-intro.html
   React.useEffect(() => {
-      // async function letsDoAsyncUseEffect() { 
-        // in this case, we only care to query the contract when signed in
-        if (window.walletConnection.isSignedIn()) {
-          window.contract.get_stats()
-          .then(async (stats) => {
-            console.log(stats)
-            setStats(stats)
-            let statsMap = JSON.parse(stats);  
-            let avatars = new Map()
-            for (const key in statsMap){
-              await dnte.getImage({callback: (resizedBase64) => {
-                avatars.set(key, resizedBase64);
-                //console.log(img);
-              }})
-            }
-            setAvatars(avatars);
-          })
-          .then(() => window.contract.my_vote({account_id: window.accountId})
-            .then(myVote => {
-              console.log(myVote)
-              setMyVote(myVote)
-            })
-          )
+    if (window.walletConnection.isSignedIn()) {
+      window.contract.get_stats()
+      .then(async (stats) => {
+        setStats(stats)
+        return stats
+      })
+      .then((stats) => window.contract.my_vote({account_id: window.accountId})
+        .then(myVote => {
+          console.log(myVote)
+          setMyVote(myVote)
+          return stats
+        })
+      ).then(async (stats) => {
+        console.log(stats)
+        let statsMap = JSON.parse(stats);  
+        let avatars = new Map()
+        for (const key in statsMap){
+          await dnte.getImage({callback: (resizedBase64) => {
+            avatars.set(key, resizedBase64);
+          }})
         }
-      // }
-      // letsDoAsyncUseEffect()
+        setAvatars(avatars);
+      })
+    }
   },[])
 
   // if not signed in, return early with sign-in prompt
@@ -81,105 +89,62 @@ export default function App() {
         Sign out
       </button>
       <main>
-        <img src={meme1} style={{maxWidth: "100%"}}/>
-        {stats ?         
-        <ul className="rolldown-list" id="myList">
+        {stats ? 
+        <>        
+        <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
           {Object.entries(JSON.parse(stats)).map(([candidate, votes]) => 
-            <li key={candidate}>
-              {myVote === candidate ? <b>{candidate}</b> : <p>{candidate}</p>}
-              <p>{votes}</p>
-              <p>{generateBio()}</p>
-              <img src={avatars.get(candidate)} style={{maxWidth: "30%"}}/>
-              {myVote === candidate ? 
-                <button
-                  style={{ borderRadius: '5px' }}
-                  onClick={ async () => {
-                    await window.contract.unvote({ candidate: candidate }, '300000000000000')
-                  }}
-                >
-                  Remove Vote
-                </button>
-             : <></> }
-              {!myVote || myVote.length === 0 ? 
-              <>
-                <label
-                  htmlFor="mint"
-                >
-                  Your confidence level, expressed in NEAR:
-                </label>
-                <div style={{ display: 'flex', marginBottom: '2rem'  }}>
-                  <input
-                    autoComplete="off"
-                    defaultValue={32}
-                    id="mint"
-                  />
-                    <button
-                        style={{ borderRadius: '0 5px 5px 0' }}
-                        onClick={ async () => {
-                          await window.contract.vote({ candidate: candidate }, '300000000000000')
-                        }}
-                      >
-                        Vote
-                      </button>
-                </div> 
-              </>
-             : <></> }
-            </li>
-          )}
-          <li key="add">
-            <label htmlFor="mint">
-                Missing your favourite talking head? Add them, it's free:
-            </label>
-            <div style={{ display: 'flex', marginBottom: '2rem'  }}>
-              <input
-                autoComplete="off"
-                id="add_cand"
+            <ListItem key={candidate} secondaryAction={ myVote === candidate ? 
+              <IconButton edge="end" aria-label="delete" onClick={ async () => {
+                await window.contract.unvote({ candidate: candidate }, '300000000000000')
+              }}>
+                <DeleteIcon/>
+              </IconButton> : 
+
+              !myVote || myVote.length === 0 ? 
+              <IconButton edge="end" aria-label="vote" onClick={ async () => {
+                await window.contract.vote({ candidate: candidate }, '300000000000000')
+              }}>
+              <ThumbUpIcon/>
+            </IconButton> : <></>
+            }>
+              <ListItemAvatar>
+                <Avatar src={avatars.get(candidate)} />
+              </ListItemAvatar>
+              <ListItemText
+                primary={candidate}
+                secondary={
+                  <React.Fragment>
+                    <Typography
+                      sx={{ display: 'inline' }}
+                      component="span"
+                      variant="body2"
+                      color="text.primary"
+                    >
+                      Votes: {votes}  - 
+                    </Typography>
+                    {generateBio()}
+                  </React.Fragment>
+                }
               />
-              <button
-                  style={{ borderRadius: '0 5px 5px 0' }}
-                  onClick={ async () => {
-                    await window.contract.add_candidate({ candidate: document.getElementById('add_cand').value }, '300000000000000')
-                  }}
-                >
-                  
-                  Add Candidate
-              </button>
-            </div>           
-          </li>    
-        </ul> 
-        : <></>
-        }
-        <form onSubmit={async event => {
-          event.preventDefault()
-
-          // get elements from the form using their id attribute
-          const { fieldset, greeting } = event.target.elements
-
-          // hold onto new user-entered value from React's SynthenticEvent for use after `await` call
-          const addCandidate = greeting.value
-
-          // disable the form while the value gets updated on-chain
-          fieldset.disabled = true
-
-          try {
-            // make an update call to the smart contract
-            await window.contract.vote({
-              candidate: addCandidate
-            })
-          } catch (e) {
-            alert(
-              'Something went wrong! ' +
-              'Maybe you need to sign out and back in? ' +
-              'Check your browser console for more info.'
-            )
-            throw e
-          } finally {
-            // re-enable the form, whether the call succeeded or failed
-            fieldset.disabled = false
-          }
-
-        }}>
-        </form>
+            </ListItem>
+        )}
+        </List> 
+        <Typography
+            sx={{ display: 'inline' }}
+            component="span"
+            variant="body2"
+            color="text.primary"
+          >
+            Missing your favourite talking head? Add them, it's free: 
+        </Typography>
+        <TextField id="add_cand" label="Candidate name" variant="outlined" />
+        <IconButton edge="end" aria-label="vote" onClick={ async () => {
+                await window.contract.add_candidate({ candidate: document.getElementById('add_cand').value }, '300000000000000')
+              }}>
+              <ThumbUpIcon/>
+        </IconButton>        
+        </>
+        : <></> }
       </main>
     </>
   )

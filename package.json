@@ -32,12 +32,16 @@
     "shelljs": "~0.8.4"
   },
   "dependencies": {
-    "@mui/material": "^5.2.1",
+    "@emotion/react": "^11.7.0",
+    "@emotion/styled": "^11.6.0",
+    "@mui/icons-material": "^5.2.0",
+    "@mui/material": "^5.0.0",
+    "@types/react": "^16.8.6 || ^17.0.0",
     "big.js": "^6.1.1",
     "cfgrammar-tool": "^1.0.0",
     "jquery": "^3.6.0",
     "near-api-js": "~0.43.1",
-    "react": "~17.0.1",
+    "react": "^17.0.2",
     "react-dom": "~17.0.1",
     "regenerator-runtime": "~0.13.5",
     "sharp": "^0.29.3"
