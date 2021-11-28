@@ -12,6 +12,8 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import AddCircle from '@mui/icons-material/AddCircle';
+
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
 
@@ -63,16 +65,17 @@ export default function App() {
   if (!window.walletConnection.isSignedIn()) {
     return (
       <main>
-        <h1>Tokenized Homeopathy got <code>TEETH</code>!</h1>
+        <h1>Voting app full of innovations</h1>
         <center>
           <img src = {meme1} width='50%' height='50%'/>
         </center>
         <center>
         <p>
-          Introducing <code>TEETH</code> - "Tried Everything Else, Try Homeopathy" Fungible Token
+          No need to hire photographer! Our app generates a nice realistic avatar photo for your candidate every time you refresh the page! And yes, it can be customized to tweak gender and age!
+          Cregits: <code>thispersondoesnotexist.com</code>
         </p>
         <p>
-          Did you know that Starbucks accepts <code>TEETH</code>?
+          100% system-generated candidate bios! Thanks to <code>cfgrammar-tool</code>
         </p>
         <p style={{ textAlign: 'center', marginTop: '2.5em' }}>
           <button onClick={login}>Sign in</button>
@@ -130,19 +133,21 @@ export default function App() {
         )}
         </List> 
         <Typography
-            sx={{ display: 'inline' }}
+            sx={{ display: 'flex' }}
             component="span"
             variant="body2"
             color="text.primary"
           >
             Missing your favourite talking head? Add them, it's free: 
         </Typography>
-        <TextField id="add_cand" label="Candidate name" variant="outlined" />
-        <IconButton edge="end" aria-label="vote" onClick={ async () => {
-                await window.contract.add_candidate({ candidate: document.getElementById('add_cand').value }, '300000000000000')
-              }}>
-              <ThumbUpIcon/>
-        </IconButton>        
+        <div style={{ display: 'flex', marginBottom: '2rem'  }}>
+          <TextField id="add_cand" label="Candidate name" variant="outlined"/>
+          <IconButton edge="end" aria-label="vote" onClick={ async () => {
+                  await window.contract.add_candidate({ candidate: document.getElementById('add_cand').value }, '300000000000000')
+                }}>
+                <AddCircle/>
+          </IconButton>        
+        </div>
         </>
         : <></> }
       </main>

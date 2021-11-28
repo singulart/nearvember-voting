@@ -1,4 +1,4 @@
-const CONTRACT_NAME = process.env.CONTRACT_NAME ||'day6.isonar.testnet'
+const CONTRACT_NAME = process.env.CONTRACT_NAME ||'vote.isonar.testnet'
 
 function getConfig(env) {
   switch (env) {
